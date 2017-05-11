@@ -1,3 +1,3 @@
 UPDATE  {table}
-SET     {set_values}
-WHERE   {filters}
+{set_values}
+{filters}

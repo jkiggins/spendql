@@ -1,1 +1,1 @@
-INSERT INTO {table} ({cols}) VALUES ({vals})
+INSERT INTO {table} {cols} {vals}

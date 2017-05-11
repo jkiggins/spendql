@@ -1,3 +1,3 @@
 SELECT      *
 FROM        {table}
-WHERE       {filter}
+{filters}

@@ -6,6 +6,7 @@ from commands import transact
 from commands import tags
 
 from commands import router
+from commands import display
 
 def clean_db():
 	setup.use('test')
@@ -155,12 +156,13 @@ def testCRUD():
 
 	spendql.update(conn, 'TAGS', {'DESCR': 'DESCR1'}, {'DESCR': 'DESCR0'})
 	cursor = spendql.read(conn, 'TAGS', {'DESCR': 'DESCR1'})
+	# display.printCursor(cursor)
 	assert not isCursorEmpty(cursor), "read failed to return the record just updated, dict"
 
 
 	spendql.delete(conn, 'TAGS', {'DESCR': 'DESCR1'})
 	cursor = spendql.read(conn, 'TAGS', {'DESCR': 'DESCR1'})
-	assert not isCursorEmpty(cursor), "failed to delete record, dict"
+	assert isCursorEmpty(cursor), "failed to delete record, dict"
 
 
 

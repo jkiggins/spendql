@@ -1,12 +1,12 @@
 import sqlite3
 
-from commands import spendql
-from commands import setup
-from commands import transact
-from commands import tags
+from spendql import spendql
+from spendql import setup
+from spendql import transact
+from spendql import tags
 
-from commands import router
-from commands import display
+
+from spendql import display
 
 def clean_db():
 	setup.use('test')
@@ -37,7 +37,7 @@ def test_setup_reset():
 
 	clean_db()
 	
-	conn = sqlite3.connect('commands/dbs/test.db')
+	conn = sqlite3.connect('spendql/dbs/test.db')
 	conn.execute('INSERT INTO TRANSACT_STAGE (ACCOUNT, DATE_POSTED, SERIAL_NBR, DESCR, AMMOUNT, TYPE) VALUES ("test", "4/17/2017", 10, "test", 1.1, "test");')
 	
 	assert not isEmpty(conn, 'TRANSACT_STAGE'), "No records, insertion failed"
@@ -46,41 +46,9 @@ def test_setup_reset():
 	setup.use('test')
 	setup.reset()
 
-	conn = sqlite3.connect('commands/dbs/test.db')
+	conn = sqlite3.connect('spendql/dbs/test.db')
 
 	assert isEmpty(conn, 'TRANSACT_STAGE'), "found records, reset failed"
-
-
-def test_setup_reset_router():
-
-	# TRANSACT STAGE TABLE
-	# ---------------------
-	# ACCOUNT TEXT
-    # DATE_POSTED DATETIME
-    # SERIAL_NUMBER INT
-    # DESCRIPTION TEXT
-    # AMMOUNT FLOAT
-    # TYPE TEXT
-	# ---------------------
-	
-	router.send('setup.use', {'name': 'test'})
-	router.send('setup.reset')
-
-	conn = sqlite3.connect('commands/dbs/test.db')
-	conn.execute('INSERT INTO TRANSACT_STAGE (ACCOUNT, DATE_POSTED, SERIAL_NBR, DESCR, AMMOUNT, TYPE) VALUES ("test", "4/17/2017", 10, "test", 1.1, "test");')
-
-	cursor = conn.execute('SELECT * FROM TRANSACT_STAGE')
-	
-	assert cursor.fetchone() is not None, "No records, insertion failed"
-
-	# Close connection so that we can reset the db
-	conn.close()
-	router.send('setup.reset')
-
-	conn = sqlite3.connect('commands/dbs/test.db')
-	cursor = conn.execute('SELECT * FROM TRANSACT_STAGE')
-
-	assert cursor.fetchone() is None, "found records, reset failed"
 
 
 def testUseResetLoad():
@@ -102,6 +70,7 @@ def testUseResetLoad():
 	conn = spendql.getConn('test')
 	cursor = spendql.dumpTable(conn, 'TRANSACT_STAGE')
 	assert cursor.fetchone() is None, "Assert failed, table is not empty"
+
 
 def testTagAndMatchIO():
 	clean_db()
@@ -126,6 +95,7 @@ def testGetTag():
 	tags.addTag('test_tag2', "this is another test tag")
 	tags.addTag('test_tag3', "yet another test tag")
 	tags.getTags()
+
 
 def testGetMatch():
 	tags.addMatch('test_tag', 'regx', 0, 200)
@@ -165,6 +135,18 @@ def testCRUD():
 	assert isCursorEmpty(cursor), "failed to delete record, dict"
 
 
+def testLoad():
+	clean_db()
+
+	# Open database and load csv
+	setup.use('test')
+	transact.load('./t.csv')
+
+	# Check for records
+	conn = spendql.getConn('test')
+	cursor = spendql.dumpTable(conn, 'TRANSACT')	
+	assert cursor.fetchone() is not None, "Assert failed, table is empty"
+
 
 if __name__ == "__main__":
 	# test_setup_reset()
@@ -176,7 +158,9 @@ if __name__ == "__main__":
 	# testGetTag()
 	# testGetMatch()
 
-	testCRUD()
+	# testCRUD()
+
+	testLoad()
 
 	print('\n\ntest completed without error')
 

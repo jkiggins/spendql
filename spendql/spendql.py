@@ -2,7 +2,8 @@ import os
 import sqlite3
 import csv
 import re
-import itertools
+
+from . import tags
 
 # TODO: create where, values, etc... methods that generate sanatized sql given user input in whatever form (string, dict, list...)
 
@@ -62,45 +63,6 @@ def closeAllConns():
 
 # raw sql functions
 # sanatize sql, if there is any dirty input return nothing
-def strSanitize(dirty, mode=''):
-    test = dirty
-    if mode.upper() == 'WHERE':
-        test = rxPassiveSql.sub('', test)
-
-    search = rxNonAlphaNumeric.search(test)
-
-    if search is None:
-        return dirty
-
-
-def sqlSanitizeDict(dirty, mode=''):
-    for key in dirty:
-        clean_key = sqlSanitize(key, mode=mode)
-        clean_value = sqlSanitize(dirty[key], mode=mode)
-
-        if (clean_key is None) or (clean_value is None):
-            return None
-
-    return dirty
-
-
-def sqlSanitizeList(dirty, mode=''):
-    dirty_test = ''.join(dirty)
-    dirty_test = sqlSanitize(dirty_test, mode=mode)
-
-    if dirty_test is not None:    
-        return dirty
-
-
-def sqlSanitize(dirty, mode=''):
-    if isinstance(dirty, dict):
-        return sqlSanitizeDict(dirty, mode=mode)
-    elif isinstance(dirty, str):
-        return strSanitize(dirty, mode=mode)
-    elif len(dirty) > 0:
-        return sqlSanitizeList(dirty, mode=mode)
-
-
 def readSqlFile(name):
     path = getSQLPath(name)
     with open(path, 'r') as sql:
@@ -110,8 +72,10 @@ def readSqlFile(name):
 def renderSql(sql, args):
     if isinstance(args, dict):
         return sql.format(**args)
-    else:
+    elif isinstance(args, list):
         return sql.format(*args)
+    else:
+        return sql.format(args)
 
 
 def renderSqlFile(name, args):
@@ -125,16 +89,26 @@ def sqlValue(val):
     return val
 
 
+def sqlValues(col_val):
+    vals = list(col_val.values())
+
+    vals_sql = [sqlValue(val) for val in vals]
+    vals_str = ','.join(vals_sql)
+    return 'VALUES ({})'.format(vals_str)
+
+
+def sqlColumns(col_val):
+    cols = list(col_val.keys())
+    return '({})'.format(','.join(cols))
+
 def sqlWhere(filters):
     where_clause = ''
     if isinstance(filters, dict):
-        if sqlSanitize(filters) is not None:
-            key_value = ['{}={}'.format(key, sqlValue(filters[key])) for key in filters]
-            where_clause += ' AND '.join(key_value)
+        key_value = ['{}={}'.format(key, sqlValue(filters[key])) for key in filters]
+        where_clause += ' AND '.join(key_value)
 
     elif isinstance(filters, str):
-        if sqlSanitize(filters, mode='WHERE') is not None:
-            where_clause += filters
+        where_clause += filters
 
     if where_clause != '':
         where_clause = 'WHERE ' + where_clause
@@ -143,44 +117,29 @@ def sqlWhere(filters):
 
 
 def sqlUpdateSet(values):
-    if sqlSanitize(values) is not None:
-        key_value = ['{}={}'.format(key, sqlValue(values[key])) for key in values]
-        return 'SET ' + ','.join(key_value)
+    key_value = ['{}={}'.format(key, sqlValue(values[key])) for key in values]
+    return 'SET ' + ','.join(key_value)
 
 
-def sqlColumns(col_val):
-    cols = list(col_val.keys())
-
-    if sqlSanitize(cols) is not None:
-        return '({})'.format(','.join(cols))
-
-
-def sqlValues(col_val):
-    vals = list(col_val.values())
-
-    if sqlSanitize(vals) is not None:
-        vals_sql = [sqlValue(val) for val in vals]
-        vals_str = ','.join(vals_sql)
-        return 'VALUES ({})'.format(vals_str)
-
-
-# Execute sql files as a command or script, multiple statments (delimited by ;) makes a script
-# a single statment makes a command
-def executeCommandFile(conn, name, python_params=[], sql_params=[]):
+def command(conn, name, str_params=[], sql_params=[]):
     cursor = conn.cursor()
 
-    sql = renderSqlFile(name, python_params)
+    sql = renderSqlFile(name, str_params)
 
     if sql is not None:
-        cursor.execute(sql, sql_params)
+        try:
+            cursor.execute(sql, sql_params)
+        except:
+            pass
+
         conn.commit()
         return cursor
 
 
-def executeScriptFile(conn, name, python_params=[]):
+def script(conn, name, str_params=[]):
     cursor = conn.cursor()
 
-    sql = renderSqlFile(name, python_params)
+    sql = renderSqlFile(name, str_params)
 
     if sql is not None:
         cursor.executescript(sql)
@@ -189,53 +148,60 @@ def executeScriptFile(conn, name, python_params=[]):
 
 
 # Table operations
-
 def dropTable(conn, table_name):
-    return executeCommandFile(conn, 'drop', python_params=table_name)
+    return command(conn, 'drop', str_params=table_name)
 
 
 def truncateTable(conn, table_name):
-    return executeCommandFile(conn, 'truncate', python_params=table_name)
+    return command(conn, 'truncate', str_params=table_name)
 
 
 def dumpTable(conn, table_name):
-    return executeCommandFile(conn, 'dump', python_params=table_name)
+    return command(conn, 'dump', str_params=table_name)
+
 
 # record operations
 def create(conn, table_name, record):
     cols = sqlColumns(record)
     vals = sqlValues(record)
 
-    return executeCommandFile(conn, 'create', {'table': table_name, 'cols': cols, 'vals': vals})
+    return command(conn, 'create', {'table': table_name, 'cols': cols, 'vals': vals})
 
 
 def read(conn, table_name, filters):
     filters_str = sqlWhere(filters)
-    return executeCommandFile(conn, 'read', {'table': table_name, 'filters': filters_str})
+    return command(conn, 'read', {'table': table_name, 'filters': filters_str})
 
 
 def update(conn, table_name, update_values, filters):
     update_str = sqlUpdateSet(update_values)
     filters_str = sqlWhere(filters)
 
-    return executeCommandFile(conn, 'update', {'table': table_name, 'set_values': update_str, 'filters': filters_str})
+    return command(conn, 'update', {'table': table_name, 'set_values': update_str, 'filters': filters_str})
 
 
 def delete(conn, table_name, filters):
     filters_str = sqlWhere(filters)
 
-    return executeCommandFile(conn, 'delete', {'table': table_name, 'filters': filters_str})
+    return command(conn, 'delete', {'table': table_name, 'filters': filters_str})
 
 
-def insertCsvIntoTable(conn, csv_path, table_name):
+def loadCsv(conn, csv_path, table_name):
 
     if table_name is not None:
-        with open(csv_path) as csv_file:            
+        with open(csv_path) as csv_file:
+            rows = csv.reader(csv_file, delimiter=',', quotechar='"')           
             header = next(rows)
 
+            # a = ['key1', 'key2', 'key3', 'key4', 'key5']
+            # b = ['val1', 'val2', 'val3', 'val4', 'val5']
+
             for row in rows:
-                record = dict(itertools.product(header, row))
+                record = dict(zip(header, row))
                 create(conn, table_name, record)
+
+                # tags = tag.tagRow(row)
+                
 
             conn.commit()
             return True

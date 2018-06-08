@@ -1,1 +1,5 @@
-INSERT INTO {table} {cols} {vals}
+-- create.sql
+
+INSERT INTO {table} {cols}
+VALUES
+{vals}

@@ -1,11 +1,8 @@
 import os
 import sqlite3
-import csv
 import re
 
-from . import tags
-
-# TODO: create where, values, etc... methods that generate sanatized sql given user input in whatever form (string, dict, list...)
+from . import ctx
 
 fdir = os.path.dirname(__file__).replace('\\', '/')
 
@@ -14,6 +11,7 @@ rxPassiveSql = re.compile('AND|OR|\=|<|>|=', re.I | re.M)
 rxDoubleDot = re.compile('\.\.', re.I | re.M)
 
 open_conns = {}
+triggers = []
 
 # Path Functions, abstract away the storage details
 def getPath(suffix):
@@ -28,9 +26,9 @@ def getDBPath(name):
 
 
 def getSQLPath(name):
-    if rxDoubleDot.search(name) is None:
-        name.replace('.', '/')
-        return getPath('/sql/{0}.sql'.format(name))
+    name = name.replace('..', '')    
+    name = name.replace('.', '/')
+    return getPath('/sql/{0}.sql'.format(name))
 
 # DB functions
 def dropDB(name):
@@ -61,8 +59,26 @@ def closeAllConns():
     for key in open_conns:
         closeConn(key)
 
+def getName(conn):
+    tRecord = conn.execute('PRAGMA database_list;').fetchone()
+    sName = tRecord[2].split('\\')[-1].split('.')[0]
+
+    return sName
+
+# Triggers
+def trigger(apCall, arSQLPat):
+    """When regex patterns dbname, table, and op match, call cb"""
+    triggers.append({'call': apCall, 'sqlpat': arSQLPat})
+   
+
+def pullTriggers(asSQL):
+    bCall = True
+    for trig in triggers:
+        if trig['sqlpat'].search(asSQL):
+            trig['call']()
+
+
 # raw sql functions
-# sanatize sql, if there is any dirty input return nothing
 def readSqlFile(name):
     path = getSQLPath(name)
     with open(path, 'r') as sql:
@@ -78,28 +94,36 @@ def renderSql(sql, args):
         return sql.format(args)
 
 
-def renderSqlFile(name, args):
-    sql = readSqlFile(name)
-    return renderSql(sql, args)
+def renderSqlFile(asName, args):
+    lsSql = readSqlFile(asName)
+    lsSqlr = renderSql(lsSql, args)
+
+    return lsSqlr
+    
 
 
-def sqlValue(val):
-    if not(isinstance(val, int) or isinstance(val, float)):
-        val = "'{}'".format(val)
-    return val
+def sqlValue(val):        
+    sVal = str(val)
+
+    if val is None:
+        sVal = 'NULL'
+
+    return "'{}'".format(sVal)
 
 
-def sqlValues(col_val):
-    vals = list(col_val.values())
+def sqlValues(aiVals):
+    vals = list(aiVals)
 
-    vals_sql = [sqlValue(val) for val in vals]
-    vals_str = ','.join(vals_sql)
-    return 'VALUES ({})'.format(vals_str)
+    sqlVals = [sqlValue(v) for v in vals]
+    
+    vals_str = '({})'.format(','.join(sqlVals))
+    return vals_str
 
 
-def sqlColumns(col_val):
-    cols = list(col_val.keys())
+def sqlColumns(aiCols):
+    cols = list(aiCols)
     return '({})'.format(','.join(cols))
+
 
 def sqlWhere(filters):
     where_clause = ''
@@ -121,30 +145,34 @@ def sqlUpdateSet(values):
     return 'SET ' + ','.join(key_value)
 
 
-def command(conn, name, str_params=[], sql_params=[]):
+def command(conn, name, str_params=[]):
     cursor = conn.cursor()
 
-    sql = renderSqlFile(name, str_params)
+    lsSqlr = renderSqlFile(name, str_params)
 
-    if sql is not None:
-        try:
-            cursor.execute(sql, sql_params)
-        except:
-            pass
-
+    if ctx.DEBUG_SQL:
+        print(lsSqlr)
+    else:
+        cursor.execute(lsSqlr)
         conn.commit()
-        return cursor
+    
+    pullTriggers(lsSqlr)        
+    return cursor
 
 
 def script(conn, name, str_params=[]):
     cursor = conn.cursor()
 
-    sql = renderSqlFile(name, str_params)
+    lsSqlr = renderSqlFile(name, str_params)
 
-    if sql is not None:
-        cursor.executescript(sql)
+    if ctx.DEBUG_SQL:
+        print(lsSqlr)
+    else:
+        cursor.executescript(lsSqlr)
         conn.commit()
-        return cursor
+
+    pullTriggers(lsSqlr)
+    return cursor
 
 
 # Table operations
@@ -161,11 +189,21 @@ def dumpTable(conn, table_name):
 
 
 # record operations
-def create(conn, table_name, record):
+def createOne(conn, table_name, record):
     cols = sqlColumns(record)
-    vals = sqlValues(record)
+    vals = sqlValues(record.values())
 
     return command(conn, 'create', {'table': table_name, 'cols': cols, 'vals': vals})
+
+
+def createMany(conn, table_name, cols, records):
+
+    llVals = [sqlValues(r) for r in records]
+    lsVals = ',\n'.join(llVals)
+
+    lsCols = sqlColumns(cols)
+
+    return script(conn, 'create', {'table': table_name, 'cols': lsCols, 'vals': lsVals})
 
 
 def read(conn, table_name, filters):
@@ -185,26 +223,6 @@ def delete(conn, table_name, filters):
 
     return command(conn, 'delete', {'table': table_name, 'filters': filters_str})
 
-
-def loadCsv(conn, csv_path, table_name):
-
-    if table_name is not None:
-        with open(csv_path) as csv_file:
-            rows = csv.reader(csv_file, delimiter=',', quotechar='"')           
-            header = next(rows)
-
-            # a = ['key1', 'key2', 'key3', 'key4', 'key5']
-            # b = ['val1', 'val2', 'val3', 'val4', 'val5']
-
-            for row in rows:
-                record = dict(zip(header, row))
-                create(conn, table_name, record)
-
-                # tags = tag.tagRow(row)
-                
-
-            conn.commit()
-            return True
 
         
 

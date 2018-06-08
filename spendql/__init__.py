@@ -1,5 +1,9 @@
 import os
 import tempfile
+import re
+
+from . import spendql
+from . import tags
 
 __all__ = ['spendql', 'setup', 'tag', 'display', 'transact']
 
@@ -23,3 +27,6 @@ def einput(default=None, editor='vim'):
             os.waitpid(child_pid, 0)
             tmpfile.seek(0)
             return tmpfile.read().strip()
+
+# Setup Tags
+spendql.trigger(tags.tag, re.compile('INSERT\s+INTO\s+TRANSACT'))

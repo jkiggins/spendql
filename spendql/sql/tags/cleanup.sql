@@ -1,0 +1,2 @@
+UPDATE TRANSACT
+SET dirty=fals

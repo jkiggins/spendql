@@ -5,6 +5,8 @@ from spendql import setup
 from spendql import transact
 from spendql import tags
 
+from spendql import ctx
+
 
 from spendql import display
 
@@ -115,7 +117,7 @@ def testCRUD():
 	clean_db()
 	conn = spendql.getConn('test')
 
-	spendql.create(conn, 'TAGS', {'TAG_NAME': 'test0', 'DESCR': 'DESCR0'})
+	spendql.createOne(conn, 'TAGS', {'TAG_NAME': 'test0', 'DESCR': 'DESCR0'})
 
 	cursor = spendql.read(conn, 'TAGS', {'DESCR': 'DESCR0'})
 	assert not isCursorEmpty(cursor), "read failed to return the record just added, dict"
@@ -140,12 +142,12 @@ def testLoad():
 
 	# Open database and load csv
 	setup.use('test')
-	transact.load('./t.csv')
+	transact.load('./t.csv', asType='com')
 
 	# Check for records
 	conn = spendql.getConn('test')
 	cursor = spendql.dumpTable(conn, 'TRANSACT')	
-	assert cursor.fetchone() is not None, "Assert failed, table is empty"
+	assert cursor.fetchone() is not None or ctx.DEBUG_SQL, "Assert failed, table is empty"
 
 
 if __name__ == "__main__":

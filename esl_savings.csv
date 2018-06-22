@@ -1,0 +1,15 @@
+"Account Name : Membership Daily Dividend"
+"Account Number : 381794505S1376479067"
+"Date Range : 08/01/2017-06/16/2018"
+Transaction Number,Date,Description,Memo,Amount Debit,Amount Credit,Balance,Check Number,Fees  
+"20180611100000250179",06/11/2018,"Deposit Internet Transfer from","1376479075 CK",,1000.00,"2501.79",,
+"20180514100000150179",05/14/2018,"Withdrawal im so broke","",-1000.00,,"1501.79",,
+"2018050950000250179",05/09/2018,"Withdrawal Internet Transfer to","1376479075 CK",-500.00,,"2501.79",,
+"20180507300000300179",05/07/2018,"Deposit Savings acct Has better","Interest",,3000.00,"3001.79",,
+"2018041431400179",04/14/2018,"Withdrawal First and Security","",-314.00,,"1.79",,
+"201803310431579",03/31/2018,"Deposit Dividend","",,0.04,"315.79",,
+"201801197031575",01/19/2018,"Owners Dividend Payment 2017","",,0.70,"315.75",,
+"201712300431505",12/30/2017,"Deposit Dividend","",,0.04,"315.05",,
+"201709300131501",09/30/2017,"Deposit Dividend","",,0.01,"315.01",,
+"201708312650031500",08/31/2017,"Deposit","",,265.00,"315.00",,
+"2017082250005000",08/22/2017,"New Account Deposit","",,50.00,"50.00",,

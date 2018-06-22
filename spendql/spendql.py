@@ -145,7 +145,7 @@ def sqlUpdateSet(values):
     return 'SET ' + ','.join(key_value)
 
 
-def command(conn, name, str_params=[]):
+def execute(conn, name, str_params=[]):
     cursor = conn.cursor()
 
     lsSqlr = renderSqlFile(name, str_params)
@@ -153,7 +153,7 @@ def command(conn, name, str_params=[]):
     if ctx.DEBUG_SQL:
         print(lsSqlr)
     else:
-        cursor.execute(lsSqlr)
+        cursor.execute(lsSqlr.upper())
         conn.commit()
     
     pullTriggers(lsSqlr)        
@@ -168,7 +168,7 @@ def script(conn, name, str_params=[]):
     if ctx.DEBUG_SQL:
         print(lsSqlr)
     else:
-        cursor.executescript(lsSqlr)
+        cursor.executescript(lsSqlr.upper())
         conn.commit()
 
     pullTriggers(lsSqlr)
@@ -177,15 +177,15 @@ def script(conn, name, str_params=[]):
 
 # Table operations
 def dropTable(conn, table_name):
-    return command(conn, 'drop', str_params=table_name)
+    return execute(conn, 'drop', str_params=table_name)
 
 
 def truncateTable(conn, table_name):
-    return command(conn, 'truncate', str_params=table_name)
+    return execute(conn, 'truncate', str_params=table_name)
 
 
 def dumpTable(conn, table_name):
-    return command(conn, 'dump', str_params=table_name)
+    return execute(conn, 'dump', str_params=table_name)
 
 
 # record operations
@@ -193,35 +193,39 @@ def createOne(conn, table_name, record):
     cols = sqlColumns(record)
     vals = sqlValues(record.values())
 
-    return command(conn, 'create', {'table': table_name, 'cols': cols, 'vals': vals})
+    return execute(conn, 'create', {'table': table_name, 'cols': cols, 'vals': vals})
 
 
-def createMany(conn, table_name, cols, records):
+def createMany(conn, table_name, cols, records, ignoreDuplicates=False):
 
     llVals = [sqlValues(r) for r in records]
     lsVals = ',\n'.join(llVals)
 
     lsCols = sqlColumns(cols)
 
-    return script(conn, 'create', {'table': table_name, 'cols': lsCols, 'vals': lsVals})
+    sqlName = 'create'
+    if ignoreDuplicates:
+        sqlName = 'create_ignore_duplicates'
+
+    return script(conn, sqlName, {'table': table_name, 'cols': lsCols, 'vals': lsVals})
 
 
 def read(conn, table_name, filters):
     filters_str = sqlWhere(filters)
-    return command(conn, 'read', {'table': table_name, 'filters': filters_str})
+    return execute(conn, 'read', {'table': table_name, 'filters': filters_str})
 
 
 def update(conn, table_name, update_values, filters):
     update_str = sqlUpdateSet(update_values)
     filters_str = sqlWhere(filters)
 
-    return command(conn, 'update', {'table': table_name, 'set_values': update_str, 'filters': filters_str})
+    return execute(conn, 'update', {'table': table_name, 'set_values': update_str, 'filters': filters_str})
 
 
 def delete(conn, table_name, filters):
     filters_str = sqlWhere(filters)
 
-    return command(conn, 'delete', {'table': table_name, 'filters': filters_str})
+    return execute(conn, 'delete', {'table': table_name, 'filters': filters_str})
 
 
         

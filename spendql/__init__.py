@@ -5,7 +5,7 @@ import re
 from . import spendql
 from . import tags
 
-__all__ = ['spendql', 'setup', 'tag', 'display', 'transact']
+__all__ = ['spendql', 'setup', 'tags', 'display', 'transact', 'report']
 
 def einput(default=None, editor='vim'):
     ''' like the built-in input(), except that it uses a visual
@@ -29,4 +29,4 @@ def einput(default=None, editor='vim'):
             return tmpfile.read().strip()
 
 # Setup Tags
-spendql.trigger(tags.tag, re.compile('INSERT\s+INTO\s+TRANSACT'))
+# spendql.trigger(tags.tagDirty, re.compile('INSERT\s+INTO\s+TRANSACT'))

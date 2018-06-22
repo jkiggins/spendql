@@ -6,6 +6,7 @@ from spendql import transact
 from spendql import tags
 
 from spendql import ctx
+from spendql import report
 
 
 from spendql import display
@@ -142,7 +143,38 @@ def testLoad():
 
 	# Open database and load csv
 	setup.use('test')
-	transact.load('./t.csv', asType='com')
+	transact.load('./esl_checking.csv', asType='esl')
+	transact.load('./esl_savings.csv', asType='esl')
+	transact.load('./esl_secured.csv', asType='esl')
+	transact.load('./esl_test_duplicate.csv', asType='esl')
+
+	tags.add("Wegmans")
+	tags.add("Grocery")
+	tags.add("Walmart")
+	tags.add("Amazon")
+	tags.add("Restaurant")
+	tags.add("Gas")
+	tags.add("Car")
+	tags.add("Pay")
+	tags.add("Home")
+	tags.add("Medical")
+	tags.add("Entertain")
+	tags.add("Sport")
+	tags.add("Skiing")
+	tags.add("Clothes")
+	tags.add("Health")
+	tags.add("Projects")
+	tags.add("net-zero")
+	tags.add("Cash")
+	tags.add("Misc_Credit")
+	tags.add("Kitty")
+	tags.add("Financial_Services")
+	tags.add("Rent")
+
+	tags.tagDirty()
+
+	report.untagged()
+	report.byTag()
 
 	# Check for records
 	conn = spendql.getConn('test')
